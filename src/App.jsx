@@ -1,13 +1,15 @@
 import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 import { 
-    Loader2, Sparkles, X, Clock, Layers, Film, ArrowUp, ChevronDown, ChevronUp, Settings2, 
-    Palette, Ban, Search, FileText, Copy, Check, Image as ImageIcon, PlusCircle, Trash2, Video as VideoIcon, 
-    Download, Zap, Clapperboard, Layout as LayoutIcon, Brain, Package, Mic
+    Loader2, Sparkles, X, ChevronDown, ChevronUp, Settings2, 
+    Check, PlusCircle, Trash2, Video as VideoIcon, 
+    FileText, Copy, Zap, Clapperboard, Layout as LayoutIcon, Brain, Package, Mic,
+    Play, Volume2, VolumeX, CreditCard
 } from "lucide-react"; 
 
 import { useState, useEffect, useRef } from 'react';
 
 // --- CONFIG ---
+// ⚠️ สำคัญ: ต้องตรงกับ IP และ Port ของ Flask Server (app.py) บน VPS ของคุณ
 const SERVER_URL = "http://119.59.103.159:5000"; 
 
 // --- STYLES (8 แบบ) ---
@@ -65,6 +67,11 @@ const SceneCard = ({ scene, index, userImages, onRegenImage }) => {
     
     const [isEnglish, setIsEnglish] = useState(false);
     const [isCopied, setIsCopied] = useState(false);
+    
+    // Voice State
+    const [isPlaying, setIsPlaying] = useState(false);
+    const [isLoadingVoice, setIsLoadingVoice] = useState(false);
+    const audioRef = useRef(null);
 
     const handleCopyPrompt = () => {
         const textToCopy = isEnglish ? scene.visual_prompt_en : scene.visual_prompt_th;
@@ -73,13 +80,68 @@ const SceneCard = ({ scene, index, userImages, onRegenImage }) => {
         setTimeout(() => setIsCopied(false), 2000);
     };
 
+    /**
+     * @description Fetches the voice data from the VPS (app.py) and plays it.
+     */
+    const handlePlayVoice = async () => {
+        // 1. ถ้ากำลังเล่นอยู่ ให้หยุดทันที
+        if (isPlaying && audioRef.current) {
+            audioRef.current.pause();
+            audioRef.current.currentTime = 0;
+            setIsPlaying(false);
+            return;
+        }
+
+        // 2. ถ้ามี Audio Object เก่าอยู่แล้ว ให้เล่นซ้ำ
+        if (audioRef.current && audioRef.current.src && !isLoadingVoice) {
+            audioRef.current.play();
+            setIsPlaying(true);
+            return;
+        }
+
+        // 3. ถ้ายังไม่มี Audio Object ให้โหลดใหม่จาก VPS
+        setIsLoadingVoice(true);
+        try {
+            const response = await fetch(`${SERVER_URL}/generate-voice`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text: scene.voiceover })
+            });
+
+            if (!response.ok) throw new Error(`Voice Gen Failed: ${response.status}`);
+
+            // รับข้อมูลเป็น Blob (ไฟล์เสียง)
+            const blob = await response.blob();
+            const url = URL.createObjectURL(blob);
+            
+            // สร้าง Audio Element ใหม่
+            const audio = new Audio(url);
+            audioRef.current = audio;
+            
+            // ตั้งค่า Event Handler เมื่อเล่นจบ
+            audio.onended = () => setIsPlaying(false);
+            
+            // เริ่มเล่น
+            audio.play();
+            setIsPlaying(true);
+
+        } catch (err) {
+            console.error(err);
+            alert(`ไม่สามารถสร้างเสียงได้ (ตรวจสอบ VPS/Port 5000)\nError: ${err.message}`);
+        } finally {
+            setIsLoadingVoice(false);
+        }
+    };
+
     return (
         <div className="min-w-[280px] w-[280px] bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm flex flex-col hover:shadow-md transition-all group shrink-0">
+            {/* Header */}
             <div className="bg-gray-800 px-3 py-2 flex justify-between items-center">
                 <span className="text-xs font-bold text-white">SCENE {index + 1}</span>
                 <span className="text-xs text-gray-300">{(index * 3)}s - {(index * 3) + 3}s</span>
             </div>
             
+            {/* Visual Area */}
             <div className="aspect-video bg-slate-50 relative border-b border-gray-100 overflow-hidden flex items-center justify-center group/visual">
                  {displayImage ? (
                      <>
@@ -103,6 +165,7 @@ const SceneCard = ({ scene, index, userImages, onRegenImage }) => {
                      </div>
                  )}
 
+                 {/* Top Right Controls */}
                  <div className="absolute top-2 right-2 flex items-center gap-1">
                     <button 
                         onClick={() => setIsEnglish(!isEnglish)} 
@@ -120,11 +183,29 @@ const SceneCard = ({ scene, index, userImages, onRegenImage }) => {
                  </div>
             </div>
 
-            <div className="p-4 bg-white flex-1 flex flex-col justify-between">
+            {/* Script & Voice Area */}
+            <div className="p-4 bg-white flex-1 flex flex-col justify-between relative">
                 <div>
-                    <div className="flex items-center gap-2 mb-2">
-                        <Mic size={14} className="text-orange-600" />
-                        <span className="text-xs font-bold text-gray-700 uppercase tracking-wide">บทพากย์ (TH)</span>
+                    <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                            <Mic size={14} className="text-orange-600" />
+                            <span className="text-xs font-bold text-gray-700 uppercase tracking-wide">บทพากย์ (TH)</span>
+                        </div>
+                        
+                        {/* 🔊 VOICE BUTTON */}
+                        <button 
+                            onClick={handlePlayVoice}
+                            disabled={isLoadingVoice}
+                            className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold transition-all shadow-sm ${
+                                isPlaying 
+                                ? 'bg-red-500 text-white hover:bg-red-600' 
+                                : 'bg-green-600 text-white hover:bg-green-700'
+                            } ${isLoadingVoice ? 'opacity-70 cursor-not-allowed' : ''}`}
+                            title={isPlaying ? 'Stop' : 'Listen'}
+                        >
+                            {isLoadingVoice ? <Loader2 size={12} className="animate-spin text-white"/> : (isPlaying ? <VolumeX size={12}/> : <Play size={12} className="fill-white"/>)}
+                            {isLoadingVoice ? 'Loading...' : (isPlaying ? 'Stop' : 'Listen')}
+                        </button>
                     </div>
                     <p className="text-sm text-gray-900 font-medium leading-relaxed font-sans">"{scene.voiceover}"</p>
                 </div>
@@ -213,7 +294,8 @@ const App = () => {
     const profileMenuRef = useRef(null);
     const resultsRef = useRef(null);
 
-    const apiKey = import.meta.env.VITE_GEMINI_API_KEY; 
+    // ไม่ต้องใช้ API Key ตรงนี้อีกต่อไป เพราะ VPS จะจัดการให้
+    const apiKeyValue = "";
 
     useEffect(() => {
         const handleClickOutside = (event) => {
@@ -239,6 +321,7 @@ const App = () => {
 
     const handleImageSelect = (e) => {
         const files = Array.from(e.target.files);
+        // จำกัดแค่ 5 รูป
         if (files.length + selectedImages.length > 5) return alert("สูงสุด 5 รูป");
         setSelectedImages([...selectedImages, ...files]);
         setImagePreviews([...imagePreviews, ...files.map(f => URL.createObjectURL(f))]);
@@ -282,7 +365,7 @@ const App = () => {
     };
 
     const handleGenerateScript = async () => {
-        if (!apiKey) return setError('⚠️ API Key ไม่ถูกต้อง');
+        
         if (!topic.trim() && selectedImages.length === 0 && !videoFile) return setError('กรุณาใส่ข้อมูล: ข้อความ, รูปภาพ หรือ วิดีโอ อย่างใดอย่างหนึ่ง');
         
         setScriptList([]); setError(null); setIsLoading(true); setProgress(0); setElapsedTime(0);
@@ -310,8 +393,10 @@ const App = () => {
                 });
             }, 500);
 
+            // 1. สร้าง Payload สำหรับส่งไปยัง VPS
             const contentParts = [{ text: `โหมด: ${scenarioMode}\nโจทย์: "${topic}"\nสไตล์: "${style || 'ทั่วไป'}"` }];
             for (const file of selectedImages) {
+                // ต้องแปลงไฟล์เป็น Base64 สำหรับการส่งผ่าน JSON
                 contentParts.push({ inline_data: { mime_type: file.type, data: await fileToBase64(file) } });
             }
             if (hasVideo) contentParts.push({ text: "[USER UPLOADED A VIDEO]" });
@@ -361,34 +446,40 @@ const App = () => {
                 }
             };
 
-            const model = "gemini-2.0-flash";
-            
-            setStatusText(`กำลังสร้าง Storyboard (${model})...`);
-            console.log(`Using fixed model: ${model}`);
+            const payload = {
+                contents: [{ role: "user", parts: contentParts }],
+                generationConfig: { 
+                    responseMimeType: "application/json", 
+                    responseSchema: responseSchema, 
+                    maxOutputTokens: 8192, 
+                    temperature: 0.8 
+                },
+                systemInstruction: { parts: [{ text: systemPrompt }] }
+            };
 
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' }, 
-                body: JSON.stringify({
-                    contents: [{ role: "user", parts: contentParts }],
-                    generationConfig: { 
-                        responseMimeType: "application/json", 
-                        responseSchema: responseSchema, 
-                        maxOutputTokens: 8192, 
-                        temperature: 0.8 
-                    },
-                    systemInstruction: { parts: [{ text: systemPrompt }] }
-                })
+
+            setStatusText(`กำลังส่งคำขอไปยัง VPS (${SERVER_URL})...`);
+            
+            // 2. ส่ง Payload ไปยัง VPS Proxy Endpoint แทน Google โดยตรง
+            const response = await fetch(`${SERVER_URL}/generate-script`, {
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify(payload)
             });
 
-            if (response.status === 429) { 
-                throw new Error(`โมเดล ${model} ถูกใช้งานหนักเกินไป (Rate Limit) กรุณารอสัก 1-2 นาทีแล้วลองใหม่ครับ`);
-            }
-            
             if (!response.ok) { 
-                throw new Error(`Server Error: ${response.status}`);
+                const errorBody = await response.json().catch(() => ({ error: 'Unknown VPS Error' }));
+                
+                // ดักจับ error จาก VPS
+                if (response.status === 500 && errorBody.error && errorBody.error.includes("GEMINI_API_KEY is not set")) {
+                    throw new Error("⚠️ VPS Error: กรุณากำหนด GEMINI_API_KEY ในไฟล์ app.py บน VPS");
+                }
+
+                throw new Error(`Server Error: ${response.status} (${errorBody.error || 'Unknown Error'})`);
             }
 
             const result = await response.json();
+            
             if (!result.candidates || result.candidates.length === 0) {
                 throw new Error("AI ไม่ตอบสนอง (No candidates)");
             }
@@ -397,8 +488,6 @@ const App = () => {
             const fullList = cleanAndParseJSON(resultText);
             
             if (!fullList) throw new Error("ข้อมูลผิดพลาด (JSON Error) ลองใหม่ครับ");
-
-// ... (โค้ดส่วนบนเหมือนเดิม) ...
 
             setScriptList(Array.isArray(fullList) ? fullList : [fullList]);
             
@@ -409,7 +498,6 @@ const App = () => {
             clearInterval(timerRef.current);
             setProgress(100);
 
-            // 👇 แก้ไขส่วนการ Scroll ให้แม่นยำขึ้น (เผื่อระยะ Header 100px)
             setTimeout(() => {
                 if (resultsRef.current) {
                     const headerOffset = 100; // ระยะห่างจากขอบบน (px) เพื่อไม่ให้โดนเมนูบัง
@@ -421,11 +509,9 @@ const App = () => {
                         behavior: "smooth"
                     });
                 }
-            }, 500); // รอ 0.5 วิ ให้ Animation การย่อขยายเสร็จก่อนค่อยเลื่อน
+            }, 500);
 
         } catch (error) {
-            // ... (ส่วน Error เหมือนเดิม) ...
-
             console.error(error);
             setError(error.message);
             clearInterval(timerRef.current);
