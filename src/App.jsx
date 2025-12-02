@@ -1,10 +1,8 @@
 import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 import { 
-    Loader2, Sparkles, X, Layers, Film, ArrowUp, Settings2, 
-    Palette, Image as ImageIcon, PlusCircle, Video as VideoIcon, 
-    MonitorPlay, Wand2, FileSpreadsheet, Package, Check, Play, Copy, Mic, 
-    Zap, Brain, Megaphone, Clapperboard, ChevronDown, ChevronUp,
-    User, CreditCard, Trash2, RotateCcw, Edit3, Languages, FileText // ✅ เพิ่ม FileText ตรงนี้แล้ว
+    Loader2, Sparkles, X, Clock, Layers, Film, ArrowUp, ChevronDown, ChevronUp, Settings2, 
+    Palette, Ban, Search, FileText, Copy, Check, Image as ImageIcon, PlusCircle, Trash2, Video as VideoIcon, 
+    Download, Zap, Clapperboard, Layout as LayoutIcon, Brain, Package, Mic
 } from "lucide-react"; 
 
 import { useState, useEffect, useRef } from 'react';
@@ -185,6 +183,8 @@ const ResultRow = ({ script, index, userImages, onExportTXT, isExpanded, onToggl
         </div>
     );
 };
+
+const Wand2 = ({size, className}) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M15 4V2"/><path d="M15 16v-2"/><path d="M8 9h2"/><path d="M20 9h2"/><path d="M17.8 11.8 19 13"/><path d="M15 9h0"/><path d="M17.8 6.2 19 5"/><path d="m3 21 9-9"/><path d="M12.2 6.2 11 5"/></svg>);
 
 // --- MAIN APP ---
 const App = () => {
@@ -398,20 +398,34 @@ const App = () => {
             
             if (!fullList) throw new Error("ข้อมูลผิดพลาด (JSON Error) ลองใหม่ครับ");
 
+// ... (โค้ดส่วนบนเหมือนเดิม) ...
+
             setScriptList(Array.isArray(fullList) ? fullList : [fullList]);
             
-            setIsInputCollapsed(true);
-            setExpandedResultId(0);
+            setIsInputCollapsed(true); // ย่อส่วน Input เก็บขึ้นไป
+            setExpandedResultId(0);    // 👈 สั่งให้เปิดการ์ดใบแรกทันที
             
             clearInterval(interval);
             clearInterval(timerRef.current);
             setProgress(100);
 
+            // 👇 แก้ไขส่วนการ Scroll ให้แม่นยำขึ้น (เผื่อระยะ Header 100px)
             setTimeout(() => {
-                resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }, 500);
+                if (resultsRef.current) {
+                    const headerOffset = 100; // ระยะห่างจากขอบบน (px) เพื่อไม่ให้โดนเมนูบัง
+                    const elementPosition = resultsRef.current.getBoundingClientRect().top;
+                    const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+            
+                    window.scrollTo({
+                        top: offsetPosition,
+                        behavior: "smooth"
+                    });
+                }
+            }, 500); // รอ 0.5 วิ ให้ Animation การย่อขยายเสร็จก่อนค่อยเลื่อน
 
         } catch (error) {
+            // ... (ส่วน Error เหมือนเดิม) ...
+
             console.error(error);
             setError(error.message);
             clearInterval(timerRef.current);
@@ -424,7 +438,7 @@ const App = () => {
         <div className="min-h-screen bg-[#F8F9FA] font-sans text-gray-900 pb-20">
             {/* --- HEADER --- */}
             <header className="bg-white sticky top-0 z-30 shadow-sm border-b border-gray-200">
-                <div className="max-w-5xl mx-auto px-4 py-3 flex justify-between items-center">
+                <div className="max-w-4xl mx-auto px-4 py-3 flex justify-between items-center">
                     <div className="flex items-center gap-3">
                         <div className="bg-gradient-to-br from-orange-500 to-red-600 text-white p-2.5 rounded-xl shadow-lg shadow-orange-100">
                             <Sparkles size={20}/>
@@ -472,135 +486,138 @@ const App = () => {
                 </div>
             </header>
 
-            <main className="max-w-5xl mx-auto p-4 md:p-8">
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                    
-                    {/* --- INPUT SECTION --- */}
-                    <div className="lg:col-span-5 space-y-6">
-                        <div className={`bg-white p-5 rounded-2xl shadow-sm border border-gray-200 space-y-5 relative transition-all duration-500 ease-in-out overflow-hidden ${isInputCollapsed ? 'max-h-20 bg-gray-50' : 'max-h-[1200px]'}`}>
-                            
-                            <div className="flex justify-between items-center border-b border-gray-100 pb-3 cursor-pointer" onClick={() => setIsInputCollapsed(!isInputCollapsed)}>
-                                <h2 className="font-bold text-gray-800 flex items-center gap-2">
-                                    <Settings2 size={18} className="text-orange-500"/> ข้อมูลตั้งต้น
-                                </h2>
-                                <div className="flex gap-2">
-                                    {isInputCollapsed ? <ChevronDown size={18} className="text-gray-400"/> : <ChevronUp size={18} className="text-gray-400"/>}
-                                    <button onClick={(e) => { e.stopPropagation(); handleClearAll(); }} className="text-gray-400 hover:text-red-500 transition-colors p-1" title="ล้างข้อมูล">
-                                        <Trash2 size={18}/>
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div className={`space-y-5 transition-opacity duration-300 ${isInputCollapsed ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
-                                <div>
-                                    <label className="text-xs font-bold text-gray-500 mb-1.5 block">1. โจทย์ / สินค้า / เรื่องที่อยากเล่า</label>
-                                    <textarea 
-                                        value={topic} onChange={e => setTopic(e.target.value)}
-                                        placeholder="เช่น รีวิวคอลลาเจนผิวใส, เที่ยวเชียงใหม่คนเดียว, บ่นเรื่องงาน..."
-                                        className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-orange-500 outline-none h-24 resize-none transition-all placeholder-gray-300"
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="text-xs font-bold text-gray-500 mb-1.5 block">2. รูปภาพประกอบ (ถ้ามี)</label>
-                                    <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
-                                        {imagePreviews.map((src, i) => (
-                                            <div key={i} className="relative w-16 h-16 rounded-lg overflow-hidden border border-gray-200 shrink-0 shadow-sm">
-                                                <img src={src} className="w-full h-full object-cover" />
-                                                <button onClick={() => {
-                                                    const newImgs = [...selectedImages]; newImgs.splice(i, 1); setSelectedImages(newImgs);
-                                                    const newPrevs = [...imagePreviews]; newPrevs.splice(i, 1); setImagePreviews(newPrevs);
-                                                }} className="absolute top-0 right-0 bg-black/50 text-white p-0.5 hover:bg-red-500 transition-colors"><X size={10}/></button>
-                                            </div>
-                                        ))}
-                                        <button onClick={() => fileInputRef.current.click()} className="w-16 h-16 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center text-gray-400 hover:border-orange-500 hover:text-orange-500 hover:bg-orange-50 transition-all shrink-0 bg-gray-50">
-                                            <PlusCircle size={18} />
-                                        </button>
-                                    </div>
-                                    <input type="file" multiple ref={fileInputRef} className="hidden" onChange={handleImageSelect} accept="image/*" />
-                                </div>
-
-                                <div>
-                                    <div className="flex justify-between items-center mb-1.5">
-                                        <label className="text-xs font-bold text-gray-500 block">3. วิดีโอ (ถ้ามี)</label>
-                                        <button 
-                                            onClick={() => setIsVideoExpanded(!isVideoExpanded)}
-                                            className="text-[10px] text-blue-600 font-bold flex items-center gap-1 hover:underline"
-                                        >
-                                            {isVideoExpanded ? 'ซ่อน' : 'เพิ่มวิดีโอ'} {isVideoExpanded ? <ChevronUp size={12}/> : <ChevronDown size={12}/>}
-                                        </button>
-                                    </div>
-                                    {isVideoExpanded && (
-                                        <div className="animate-in fade-in slide-in-from-top-2 duration-300">
-                                            {!videoFile ? (
-                                                <div onClick={() => videoInputRef.current.click()} className="border-2 border-dashed border-blue-100 bg-blue-50/50 rounded-xl p-6 text-center cursor-pointer hover:bg-blue-50 transition-colors group">
-                                                    <VideoIcon size={24} className="mx-auto text-blue-300 group-hover:text-blue-500 mb-2 transition-colors"/>
-                                                    <span className="text-xs text-blue-600 font-bold">คลิกเพื่ออัปโหลดวิดีโอ</span>
-                                                </div>
-                                            ) : (
-                                                <div className="relative rounded-xl overflow-hidden bg-black border border-gray-200 shadow-md">
-                                                    <video src={videoPreview} className="w-full max-h-40 object-contain" />
-                                                    <button onClick={() => {setVideoFile(null); setVideoPreview(null)}} className="absolute top-2 right-2 bg-red-600 text-white p-1 rounded-full hover:bg-red-700"><X size={12}/></button>
-                                                </div>
-                                            )}
-                                            <input type="file" ref={videoInputRef} onChange={handleVideoSelect} className="hidden" accept="video/*" />
-                                        </div>
-                                    )}
-                                </div>
-
-                                <div>
-                                    <label className="text-xs font-bold text-gray-500 mb-1.5 block">4. สไตล์ (Mood)</label>
-                                    <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto custom-scrollbar pr-1">
-                                        {STYLE_OPTIONS.map((opt) => (
-                                            <StyleCard key={opt.id} item={opt} isSelected={style === opt.label} onClick={setStyle} />
-                                        ))}
-                                    </div>
-                                </div>
-
-                                <button 
-                                    onClick={handleGenerateScript} 
-                                    disabled={isLoading} 
-                                    className="w-full py-4 bg-gray-900 text-white font-bold rounded-xl shadow-lg hover:bg-black transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed hover:scale-[1.02] active:scale-[0.98]"
-                                >
-                                    {isLoading ? <Loader2 className="animate-spin"/> : <Sparkles className="text-yellow-400 fill-yellow-400"/>}
-                                    {isLoading ? 'กำลังสร้าง...' : 'เริ่มสร้าง Storyboard'}
+            <main className="max-w-3xl mx-auto p-4 md:p-8 pb-32">
+                
+                {/* --- 1. INPUT SECTION (เรียงอยู่ข้างบน) --- */}
+                <div className="w-full space-y-6 mb-10">
+                    <div className={`bg-white p-6 rounded-2xl shadow-sm border border-gray-200 space-y-6 relative transition-all duration-500 ease-in-out overflow-hidden ${isInputCollapsed ? 'max-h-24 bg-gray-50' : 'max-h-[1200px]'}`}>
+                        
+                        <div className="flex justify-between items-center border-b border-gray-100 pb-4 cursor-pointer" onClick={() => setIsInputCollapsed(!isInputCollapsed)}>
+                            <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                                <Settings2 size={20} className="text-orange-500"/> ข้อมูลตั้งต้น
+                            </h2>
+                            <div className="flex gap-2">
+                                {isInputCollapsed ? <ChevronDown size={20} className="text-gray-400"/> : <ChevronUp size={20} className="text-gray-400"/>}
+                                <button onClick={(e) => { e.stopPropagation(); handleClearAll(); }} className="text-gray-400 hover:text-red-500 transition-colors p-1" title="ล้างข้อมูล">
+                                    <Trash2 size={20}/>
                                 </button>
                             </div>
                         </div>
-                    </div>
 
-                    {/* --- OUTPUT SECTION --- */}
-                    <div className="lg:col-span-7 space-y-4" ref={resultsRef}>
-                        {scriptList.length > 0 ? (
-                            <div className="animate-fade-in">
-                                <div className="flex items-center gap-2 mb-4">
-                                    <Clapperboard className="text-orange-600" size={24}/>
-                                    <h2 className="text-xl font-black text-gray-900">STORYBOARD RESULT ({scriptList.length})</h2>
-                                </div>
-                                {scriptList.map((script, idx) => (
-                                    <ResultRow 
-                                        key={idx} 
-                                        script={script} 
-                                        index={idx} 
-                                        userImages={imagePreviews} 
-                                        onExportTXT={handleExportTXT} 
-                                        isExpanded={expandedResultId === idx} 
-                                        onToggle={() => setExpandedResultId(expandedResultId === idx ? -1 : idx)} 
-                                    />
-                                ))}
+                        <div className={`space-y-6 transition-opacity duration-300 ${isInputCollapsed ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+                            
+                            <div>
+                                <label className="text-sm font-bold text-gray-600 mb-2 block">1. โจทย์ / สินค้า / เรื่องที่อยากเล่า</label>
+                                <textarea 
+                                    value={topic} onChange={e => setTopic(e.target.value)}
+                                    placeholder="เช่น รีวิวคอลลาเจนผิวใส, เที่ยวเชียงใหม่คนเดียว, บ่นเรื่องงาน..."
+                                    className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl text-base focus:border-orange-500 outline-none h-28 resize-none transition-all placeholder-gray-400 shadow-inner"
+                                />
                             </div>
-                        ) : (
-                            <div className="h-full flex flex-col items-center justify-center text-gray-400 border-2 border-dashed border-gray-200 rounded-2xl min-h-[400px] bg-gray-50/50">
-                                <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-sm mb-4">
-                                    <LayoutIcon size={40} className="text-gray-300"/>
+
+                            <div>
+                                <label className="text-sm font-bold text-gray-600 mb-2 block">2. รูปภาพประกอบ (ถ้ามี)</label>
+                                <div className="flex gap-3 overflow-x-auto pb-2 custom-scrollbar">
+                                    {imagePreviews.map((src, i) => (
+                                        <div key={i} className="relative w-20 h-20 rounded-xl overflow-hidden border border-gray-200 shrink-0 shadow-sm group">
+                                            <img src={src} className="w-full h-full object-cover" />
+                                            <button onClick={() => {
+                                                const newImgs = [...selectedImages]; newImgs.splice(i, 1); setSelectedImages(newImgs);
+                                                const newPrevs = [...imagePreviews]; newPrevs.splice(i, 1); setImagePreviews(newPrevs);
+                                            }} className="absolute top-0 right-0 bg-black/50 text-white p-1 hover:bg-red-500 transition-colors opacity-0 group-hover:opacity-100"><X size={12}/></button>
+                                        </div>
+                                    ))}
+                                    <button onClick={() => fileInputRef.current.click()} className="w-20 h-20 border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center text-gray-400 hover:border-orange-500 hover:text-orange-500 hover:bg-orange-50 transition-all shrink-0 bg-white">
+                                        <PlusCircle size={24} />
+                                    </button>
                                 </div>
-                                <p className="text-sm font-medium text-gray-500">รอข้อมูลเพื่อสร้าง Storyboard...</p>
+                                <input type="file" multiple ref={fileInputRef} className="hidden" onChange={handleImageSelect} accept="image/*" />
                             </div>
-                        )}
+
+                            <div>
+                                <div className="flex justify-between items-center mb-2">
+                                    <label className="text-sm font-bold text-gray-600 block">3. วิดีโอ (ถ้ามี)</label>
+                                    <button 
+                                        onClick={() => setIsVideoExpanded(!isVideoExpanded)}
+                                        className="text-xs text-blue-600 font-bold flex items-center gap-1 hover:underline bg-blue-50 px-2 py-1 rounded-md"
+                                    >
+                                        {isVideoExpanded ? 'ซ่อน' : 'เพิ่มวิดีโอ'} {isVideoExpanded ? <ChevronUp size={14}/> : <ChevronDown size={14}/>}
+                                    </button>
+                                </div>
+                                {isVideoExpanded && (
+                                    <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+                                        {!videoFile ? (
+                                            <div onClick={() => videoInputRef.current.click()} className="border-2 border-dashed border-blue-200 bg-blue-50/30 rounded-xl p-8 text-center cursor-pointer hover:bg-blue-50 transition-colors group">
+                                                <VideoIcon size={32} className="mx-auto text-blue-300 group-hover:text-blue-500 mb-2 transition-colors"/>
+                                                <span className="text-sm text-blue-600 font-bold">คลิกเพื่ออัปโหลดวิดีโอ</span>
+                                            </div>
+                                        ) : (
+                                            <div className="relative rounded-xl overflow-hidden bg-black border border-gray-200 shadow-md max-w-sm mx-auto">
+                                                <video src={videoPreview} className="w-full max-h-48 object-contain" />
+                                                <button onClick={() => {setVideoFile(null); setVideoPreview(null)}} className="absolute top-2 right-2 bg-red-600 text-white p-1.5 rounded-full hover:bg-red-700 shadow-md"><X size={14}/></button>
+                                            </div>
+                                        )}
+                                        <input type="file" ref={videoInputRef} onChange={handleVideoSelect} className="hidden" accept="video/*" />
+                                    </div>
+                                )}
+                            </div>
+
+                            <div>
+                                <label className="text-sm font-bold text-gray-600 mb-2 block">4. สไตล์ (Mood)</label>
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 max-h-60 overflow-y-auto custom-scrollbar pr-1">
+                                    {STYLE_OPTIONS.map((opt) => (
+                                        <StyleCard key={opt.id} item={opt} isSelected={style === opt.label} onClick={setStyle} />
+                                    ))}
+                                </div>
+                            </div>
+
+                            <button 
+                                onClick={handleGenerateScript} 
+                                disabled={isLoading} 
+                                className="w-full py-4 bg-gray-900 text-white text-lg font-bold rounded-xl shadow-lg hover:bg-black transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed hover:scale-[1.01] active:scale-[0.99] mt-4"
+                            >
+                                {isLoading ? <Loader2 className="animate-spin"/> : <Sparkles className="text-yellow-400 fill-yellow-400"/>}
+                                {isLoading ? 'กำลังสร้าง...' : 'เริ่มสร้าง Storyboard'}
+                            </button>
+                        </div>
                     </div>
                 </div>
+
+                {/* --- 2. OUTPUT SECTION (เรียงต่อลงมาข้างล่าง) --- */}
+                <div className="w-full space-y-4" ref={resultsRef}>
+                    {scriptList.length > 0 ? (
+                        <div className="animate-fade-in">
+                            <div className="flex items-center justify-center gap-3 mb-6"> 
+                                <div className="h-px bg-gray-300 w-12"></div>
+                                <Clapperboard className="text-orange-600" size={24}/>
+                                <h2 className="text-xl font-black text-gray-900 uppercase tracking-wider">Storyboard Result ({scriptList.length})</h2>
+                                <div className="h-px bg-gray-300 w-12"></div>
+                            </div>
+                            {scriptList.map((script, idx) => (
+                                <ResultRow 
+                                    key={idx} 
+                                    script={script} 
+                                    index={idx} 
+                                    userImages={imagePreviews} 
+                                    onExportTXT={handleExportTXT} 
+                                    isExpanded={expandedResultId === idx} 
+                                    onToggle={() => setExpandedResultId(expandedResultId === idx ? -1 : idx)} 
+                                />
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="h-full flex flex-col items-center justify-center text-gray-400 border-2 border-dashed border-gray-200 rounded-2xl min-h-[250px] bg-gray-50/50 py-12">
+                            <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-sm mb-4 border border-gray-100">
+                                <LayoutIcon size={40} className="text-gray-300"/>
+                            </div>
+                            <p className="text-base font-medium text-gray-500">ผลลัพธ์จะปรากฏที่นี่...</p>
+                        </div>
+                    )}
+                </div>
+
             </main>
 
+            {/* Loading Modal */}
             {isLoading && (
                 <div className="fixed inset-0 bg-white/90 backdrop-blur-md z-50 flex flex-col items-center justify-center p-4 animate-in fade-in duration-300">
                     <div className="relative mb-6">
@@ -619,7 +636,5 @@ const App = () => {
         </div>
     );
 };
-
-const LayoutIcon = ({size, className}) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>);
 
 export default App;
