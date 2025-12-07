@@ -12,7 +12,7 @@ CORS(app)
 # ==========================================
 # 🔑 ใส่ API KEY ของคุณตรงนี้
 # ==========================================
-GENAI_API_KEY = "AIzaSyBQvAIvn4xXW1VbaKCbzwW2UETna04HTgc" 
+GENAI_API_KEY = "" 
 
 genai.configure(api_key=GENAI_API_KEY)
 
